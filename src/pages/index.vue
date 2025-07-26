@@ -24,6 +24,11 @@ function handleVideoDisconnected() {
   // 视频流断开连接
 }
 
+function handleVideoStatusChanged(isRunning: boolean) {
+  // eslint-disable-next-line no-console
+  console.log('Video stream status changed:', isRunning)
+}
+
 // 处理元数据事件
 function handleMetadataError(message: string) {
   console.error('Metadata stream error:', message)
@@ -33,6 +38,11 @@ function handleMetadataReceived(data: any) {
   // 可以在这里处理接收到的元数据，比如统计、分析等
   // eslint-disable-next-line no-console
   console.log('Metadata received:', data)
+}
+
+function handleMetadataStatusChanged(isRunning: boolean) {
+  // eslint-disable-next-line no-console
+  console.log('Metadata stream status changed:', isRunning)
 }
 </script>
 
@@ -48,6 +58,7 @@ function handleMetadataReceived(data: any) {
         @error="handleVideoError"
         @connected="handleVideoConnected"
         @disconnected="handleVideoDisconnected"
+        @status-changed="handleVideoStatusChanged"
       />
 
       <!-- 元信息区域 -->
@@ -55,6 +66,7 @@ function handleMetadataReceived(data: any) {
         :stream-url="metadataStreamUrl"
         @error="handleMetadataError"
         @data-received="handleMetadataReceived"
+        @status-changed="handleMetadataStatusChanged"
       />
     </div>
   </div>

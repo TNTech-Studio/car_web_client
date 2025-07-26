@@ -8,6 +8,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   error: [message: string]
   dataReceived: [data: Metadata]
+  statusChanged: [isRunning: boolean]
 }>()
 
 interface TrackedTarget {
@@ -38,10 +39,17 @@ interface Props {
 }
 
 const metadata = ref<Metadata | null>(null)
+const isRunning = ref(false)
+let metadataSource: EventSource | null = null
 
-onMounted(() => {
-  // Metadata stream
-  const metadataSource = new EventSource(props.streamUrl)
+function startStream() {
+  if (metadataSource) {
+    metadataSource.close()
+  }
+
+  metadataSource = new EventSource(props.streamUrl)
+  isRunning.value = true
+  emit('statusChanged', true)
 
   metadataSource.onmessage = function (event) {
     try {
@@ -59,21 +67,52 @@ onMounted(() => {
     console.error('Metadata EventSource error:', event)
     emit('error', 'Metadata connection error')
   }
+}
 
-  // 组件卸载时关闭连接
-  onUnmounted(() => {
+function stopStream() {
+  if (metadataSource) {
     metadataSource.close()
-  })
+    metadataSource = null
+  }
+
+  isRunning.value = false
+  emit('statusChanged', false)
+}
+
+function toggleStream() {
+  if (isRunning.value) {
+    stopStream()
+  }
+  else {
+    startStream()
+  }
+}
+
+onMounted(() => {
+  startStream()
+})
+
+onUnmounted(() => {
+  stopStream()
 })
 </script>
 
 <template>
   <div class="max-h-80vh w-100 flex-none overflow-y-auto rounded-2 bg-white p-5 shadow-lg">
-    <h2 class="m-0 mb-5 border-b-2 border-indigo-500 pb-2.5 text-xl text-gray-800">
-      实时元信息
-    </h2>
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="m-0 border-b-2 border-indigo-500 pb-2.5 text-xl text-gray-800">
+        实时元信息
+      </h2>
+      <button
+        class="text-sm btn"
+        :class="isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+        @click="toggleStream"
+      >
+        {{ isRunning ? '停止' : '开始' }}
+      </button>
+    </div>
     <div class="text-sm">
-      <div v-if="metadata" class="flex flex-col gap-5">
+      <div v-if="metadata && isRunning" class="flex flex-col gap-5">
         <!-- 基础信息 -->
         <div class="border border-gray-300 rounded-1.5 bg-gray-50 p-3.75">
           <h3 class="m-0 mb-3 text-base text-gray-600 font-semibold">
@@ -149,7 +188,7 @@ onMounted(() => {
         </div>
       </div>
       <div v-else class="px-5 py-10 text-center text-gray-500 italic">
-        等待元信息数据...
+        {{ isRunning ? '等待元信息数据...' : '元信息流已停止' }}
       </div>
     </div>
   </div>
