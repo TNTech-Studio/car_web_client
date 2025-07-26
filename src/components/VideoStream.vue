@@ -22,6 +22,9 @@ interface Props {
 const isVideoUnavailable = ref(false)
 const hasLastFrame = ref(false)
 const isRunning = ref(false)
+const aggressiveMode = ref<'idle' | 'chasing' | 'explosion'>('idle')
+const isResetting = ref(false)
+const isTogglingMode = ref(false)
 let timeoutId: NodeJS.Timeout | null = null
 let frameSource: EventSource | null = null
 
@@ -100,6 +103,129 @@ function toggleStream() {
   }
 }
 
+async function resetState() {
+  if (isResetting.value)
+    return
+
+  try {
+    isResetting.value = true
+    const response = await fetch('http://localhost:8000/increment', {
+      method: 'POST',
+    })
+
+    if (!response.ok) {
+      throw new Error(`Reset failed: ${response.status}`)
+    }
+
+    emit('statusChanged', isRunning.value)
+  }
+  catch (error) {
+    console.error('Reset state error:', error)
+    emit('error', `Reset state failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+  finally {
+    isResetting.value = false
+  }
+}
+
+async function toggleAggressiveMode() {
+  if (isTogglingMode.value)
+    return
+
+  try {
+    isTogglingMode.value = true
+
+    // 循环切换状态：idle -> chasing -> explosion -> idle
+    const modes: Array<'idle' | 'chasing' | 'explosion'> = ['idle', 'chasing', 'explosion']
+    const currentIndex = modes.indexOf(aggressiveMode.value)
+    const nextIndex = (currentIndex + 1) % modes.length
+    const newMode = modes[nextIndex]
+
+    const response = await fetch('http://localhost:8000/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        config_aggressive: newMode,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Config update failed: ${response.status}`)
+    }
+
+    aggressiveMode.value = newMode
+    emit('statusChanged', isRunning.value)
+  }
+  catch (error) {
+    console.error('Toggle aggressive mode error:', error)
+    emit('error', `Toggle aggressive mode failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+  finally {
+    isTogglingMode.value = false
+  }
+}
+
+function getAggressiveModeButtonClass() {
+  switch (aggressiveMode.value) {
+    case 'idle':
+      return 'bg-gray-600 hover:bg-gray-700'
+    case 'chasing':
+      return 'bg-orange-600 hover:bg-orange-700'
+    case 'explosion':
+      return 'bg-red-600 hover:bg-red-700'
+    default:
+      return 'bg-gray-600 hover:bg-gray-700'
+  }
+}
+
+function getAggressiveModeLabel() {
+  switch (aggressiveMode.value) {
+    case 'idle':
+      return '待机模式'
+    case 'chasing':
+      return '追踪模式'
+    case 'explosion':
+      return '爆破模式'
+    default:
+      return '未知模式'
+  }
+}
+
+async function setAggressiveMode(mode: 'idle' | 'chasing' | 'explosion') {
+  if (isTogglingMode.value || aggressiveMode.value === mode)
+    return
+
+  try {
+    isTogglingMode.value = true
+
+    const response = await fetch('http://localhost:8000/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        config_aggressive: mode,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Config update failed: ${response.status}`)
+    }
+
+    aggressiveMode.value = mode
+    emit('statusChanged', isRunning.value)
+  }
+  catch (error) {
+    console.error('Set aggressive mode error:', error)
+    emit('error', `Set aggressive mode failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+  finally {
+    isTogglingMode.value = false
+  }
+}
+
 onMounted(() => {
   startStream()
 })
@@ -112,14 +238,59 @@ onUnmounted(() => {
 <template>
   <div class="relative min-h-112.5 min-w-160 flex flex-1 flex-col items-center justify-center">
     <!-- 控制按钮 -->
-    <div class="mb-4 flex gap-2">
-      <button
-        class="btn"
-        :class="isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
-        @click="toggleStream"
-      >
-        {{ isRunning ? '停止视频' : '开始视频' }}
-      </button>
+    <div class="mb-4 flex flex-col gap-3">
+      <!-- 第一行：主要控制按钮 -->
+      <div class="flex gap-2">
+        <button
+          class="btn"
+          :class="isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'"
+          @click="toggleStream"
+        >
+          {{ isRunning ? '停止视频' : '开始视频' }}
+        </button>
+
+        <button
+          class="bg-blue-600 btn hover:bg-blue-700"
+          :disabled="isResetting"
+          @click="resetState"
+        >
+          {{ isResetting ? '重置中...' : '重置状态' }}
+        </button>
+
+        <button
+          class="btn"
+          :class="getAggressiveModeButtonClass()"
+          :disabled="isTogglingMode"
+          @click="toggleAggressiveMode"
+        >
+          {{ isTogglingMode ? '切换中...' : getAggressiveModeLabel() }}
+        </button>
+      </div>
+
+      <!-- 第二行：攻击模式选择器 -->
+      <div class="flex items-center gap-2">
+        <label for="aggressive-select" class="text-sm text-gray-700 font-medium">
+          攻击模式:
+        </label>
+        <select
+          id="aggressive-select"
+          v-model="aggressiveMode"
+          class="h-8 border-gray-300 rounded bg-white px-2 text-sm text-gray-700 focus:border-orange-500 focus:ring-orange-500"
+          :disabled="isTogglingMode"
+          @change="setAggressiveMode(aggressiveMode)"
+        >
+          <option value="idle">
+            待机模式
+          </option>
+          <option value="chasing">
+            追踪模式
+          </option>
+          <option value="explosion">
+            爆破模式
+          </option>
+        </select>
+        <span v-if="isTogglingMode" class="text-sm text-gray-500">(更新中...)</span>
+      </div>
     </div>
 
     <!-- 视频显示区域 -->

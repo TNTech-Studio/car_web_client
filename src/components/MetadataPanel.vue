@@ -24,6 +24,7 @@ interface ExtraMetadata {
   tracked_target: TrackedTarget | null
 }
 
+//
 interface Metadata {
   frame_count: number
   fps: number
@@ -32,6 +33,8 @@ interface Metadata {
   detected_classes: Record<string, number>
   processing_time: number
   extra_metadata: ExtraMetadata
+  state_count: number
+  config_aggressive: boolean
 }
 
 interface Props {
@@ -133,6 +136,21 @@ onUnmounted(() => {
           <div class="flex items-start justify-between py-1">
             <span class="min-w-20 text-gray-600 font-medium">处理时间:</span>
             <span class="text-right text-gray-800 font-semibold">{{ (metadata.processing_time * 1000).toFixed(2) }}ms</span>
+          </div>
+        </div>
+
+        <!-- 配置信息 -->
+        <div class="border border-gray-300 rounded-1.5 bg-gray-50 p-3.75">
+          <h3 class="m-0 mb-3 text-base text-gray-600 font-semibold">
+            配置信息
+          </h3>
+          <div class="mb-2 flex items-start justify-between py-1">
+            <span class="min-w-20 text-gray-600 font-medium">状态计数:</span>
+            <span class="text-right text-gray-800 font-semibold">{{ metadata.state_count }}</span>
+          </div>
+          <div class="mb-2 flex items-start justify-between py-1">
+            <span class="min-w-20 text-gray-600 font-medium">激进模式:</span>
+            <span class="text-right text-gray-800 font-semibold">{{ metadata.config_aggressive }}</span>
           </div>
         </div>
 
