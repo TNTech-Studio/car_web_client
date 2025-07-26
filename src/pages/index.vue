@@ -2,58 +2,64 @@
 defineOptions({
   name: 'IndexPage',
 })
-const user = useUserStore()
-const name = ref(user.savedName)
 
-const router = useRouter()
-function go() {
-  if (name.value)
-    router.push(`/hi/${encodeURIComponent(name.value)}`)
+useHead({
+  title: 'Car Video Stream',
+})
+
+const baseUrl = 'http://192.168.66.120:8000'
+const frameStreamUrl = `${baseUrl}/stream/frame`
+const metadataStreamUrl = `${baseUrl}/stream/metadata`
+
+// 处理视频流事件
+function handleVideoError(message: string) {
+  console.error('Video stream error:', message)
 }
 
-const { t } = useI18n()
-useHead({
-  title: () => t('button.home'),
-})
+function handleVideoConnected() {
+  // 视频流连接成功
+}
+
+function handleVideoDisconnected() {
+  // 视频流断开连接
+}
+
+// 处理元数据事件
+function handleMetadataError(message: string) {
+  console.error('Metadata stream error:', message)
+}
+
+function handleMetadataReceived(data: any) {
+  // 可以在这里处理接收到的元数据，比如统计、分析等
+  // eslint-disable-next-line no-console
+  console.log('Metadata received:', data)
+}
 </script>
 
 <template>
-  <div>
-    <div text-4xl>
-      <div i-carbon-campsite inline-block />
-    </div>
-    <p>
-      <a rel="noreferrer" href="https://github.com/antfu/vitesse" target="_blank">
-        Vitesse
-      </a>
-    </p>
-    <p>
-      <em text-sm opacity-75>{{ t('intro.desc') }}</em>
-    </p>
+  <div class="min-h-screen flex flex-col items-center justify-start bg-gray-100 p-5">
+    <h1 class="mb-5 text-4xl text-gray-800">
+      Car Video Stream
+    </h1>
+    <div class="max-w-7xl w-full flex items-center gap-5 max-sm:flex-col">
+      <!-- 视频区域 -->
+      <VideoStream
+        :stream-url="frameStreamUrl"
+        @error="handleVideoError"
+        @connected="handleVideoConnected"
+        @disconnected="handleVideoDisconnected"
+      />
 
-    <div py-4 />
-
-    <TheInput
-      v-model="name"
-      :placeholder="t('intro.whats-your-name')"
-      autocomplete="false"
-      @keydown.enter="go"
-    />
-    <label class="hidden" for="input">{{ t('intro.whats-your-name') }}</label>
-
-    <div>
-      <button
-        m-3 text-sm btn
-        :disabled="!name"
-        @click="go"
-      >
-        {{ t('button.go') }}
-      </button>
+      <!-- 元信息区域 -->
+      <MetadataPanel
+        :stream-url="metadataStreamUrl"
+        @error="handleMetadataError"
+        @data-received="handleMetadataReceived"
+      />
     </div>
   </div>
 </template>
 
-<route lang="yaml">
-meta:
-  layout: home
-</route>
+<style scoped>
+/* 主页面不需要额外的样式，所有样式都在子组件中 */
+</style>
